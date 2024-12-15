@@ -34,7 +34,7 @@ async def start_checking_place(message: Message, state: FSMContext):
 
         await message.answer(msg)
     
-    await message.answer(f"Ваше занятое место номер {num_place}", reply_markup=builder)
+    await message.answer(f"У вас занято {num_place} место", reply_markup=builder)
 
 @router.message(TimeUser.timeForWait, F.text == "Отказаться от места")
 async def start_canceled_place(message: Message, state: FSMContext):
@@ -117,56 +117,48 @@ async def inf_timer_with_break(message: Message, state: FSMContext):
     await message.answer("Окей", reply_markup=types.ReplyKeyboardRemove())
 
     if message.text == "30 минут":
-        time_ = 30
-            
+        time_ = 30 
     elif message.text == "1 час":
-        time_ = 60
-        
+        time_ = 60 
     elif message.text == "2 часа":
         time_ = 120
 
     await asyncio.sleep(time_)
 
     if place[num_place-1] != 0:
-
         kb = [[
             types.KeyboardButton(text="Да"),
             types.KeyboardButton(text="Нет"),
         ]]
-
         builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Продливать ли время?")
+
         await message.answer("Продливать ли время?", reply_markup=builder)
+        await state.set_state(TimeUser.timeToAnswer)
+        await asyncio.sleep(10)
 
-        start_time = time.time()
-
-        if time.time() - start_time > 10.0:
-            state.clear()
-            await message.answer("Ваше место освобождено")
-        
-
-
-
-@router.message(TimeUser.timeForWait, F.text.startswith("Да"))
-async def yes(message: Message):
-
-    if message.text == "Да":
-        kb = [[
-            types.KeyboardButton(text="30 минут"),
-            types.KeyboardButton(text="1 час"),
-            types.KeyboardButton(text="2 часа"),
-        ]]
-        builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите время во-сколько вас упомянуть?")
-        await message.reply("Выберите время во-сколько вас упомянуть?", reply_markup=builder) 
+        if await state.get_state() == "TimeUser:timeToAnswer":
+            await state.clear()
+            place[num_place-1] = 0
+            await message.answer("Ваше место свободно для всех пользователей.", reply_markup=types.ReplyKeyboardRemove())
 
 
-@router.message(TimeUser.timeForWait, F.text.startswith("Нет"))
+@router.message(TimeUser.timeToAnswer, (F.text == "Да"))
+async def yes(message: Message, state: FSMContext):
+    state.set_state(TimeUser.timeForWait)
+    kb = [[
+        types.KeyboardButton(text="30 минут"),
+        types.KeyboardButton(text="1 час"),
+        types.KeyboardButton(text="2 часа"),
+    ]]
+    builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите время во-сколько вас упомянуть?")
+    await message.reply("Выберите время во-сколько вас упомянуть?", reply_markup=builder) 
+
+
+@router.message(TimeUser.timeToAnswer, (F.text == "Нет"))
 async def no(message: Message, state: FSMContext):
-    
-    global num_place
-    
+    global num_place  
     place[num_place-1] = 0
     await state.clear()
-
     await message.answer("Спасибо за время на парковке", reply_markup= types.ReplyKeyboardRemove())
 
 
