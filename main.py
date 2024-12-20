@@ -4,7 +4,7 @@ import sys
 from config import API_TOKEN
 from commands import router as main_router
 
-from aiogram import Router, Dispatcher, Bot
+from aiogram import Dispatcher, Bot
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot=bot)

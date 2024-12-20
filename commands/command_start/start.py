@@ -1,109 +1,88 @@
 import asyncio
-import time
-from datetime import datetime
 from .states import Wait, TimeUser
+from .keyboards import Keyboards
+from .answers import Answers
 
 from aiogram import Router, F, types
 from aiogram.types import Message 
 from aiogram.filters import Command
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 
 router = Router(name=__name__)
 
 place = [0,0,0,0]
+y = [19, 22, 61, 43]
 
-usr = 0
-num_place = 0
+
 
 
 @router.message(TimeUser.timeForWait, Command('start'))
 async def start_checking_place(message: Message, state: FSMContext):
-    kb = [[
-        types.KeyboardButton(text="Отказаться от места"),
-    ]]
-
-    builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите место")
-
+    builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardCancel(), resize_keyboard=True, input_field_placeholder="Выберите место")
+    msg = Answers.AnswerRection(place, y)
+    await message.answer(msg)
     for x in range(len(place)):
-        msg = ""
-        if place[x] != 0:
-            msg += f"🔴 {x+1} место\n"
-        else:
-            msg += f"🟢 {x+1} место\n"
+        if place[x] == message.from_user.username:
+            num = x
+            break 
+    await message.answer(f"Ваше место под номером {y[num]} место", reply_markup=builder)
 
-        await message.answer(msg)
-    
-    await message.answer(f"У вас занято {num_place} место", reply_markup=builder)
+@router.message(TimeUser.timeForWait, F.text == "Показать все места на данный момент")
+async def start_checking_place(message: Message, state: FSMContext):
+    builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardCancel(), resize_keyboard=True, input_field_placeholder="Выберите место")
+    msg = Answers.AnswerRection(place, y)
+    await message.answer(msg)
+    for x in range(len(place)):
+        if place[x] == message.from_user.username:
+            num = x
+            break 
+    await message.answer(f"Ваше место под номером {y[num]} место", reply_markup=builder)
 
-@router.message(TimeUser.timeForWait, F.text == "Отказаться от места")
+
+@router.message(TimeUser.timeForWait, F.text == "Завершить парковку")
 async def start_canceled_place(message: Message, state: FSMContext):
     await state.clear()
-
-    place[num_place-1] = 0
-    await message.answer("Спасибо за время на парковке", reply_markup=types.ReplyKeyboardRemove())
+    for x in range(len(place)):
+        if place[x] == message.from_user.username:
+            place[x] = 0
+            builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardUploadTable(), resize_keyboard=True)
+            await message.answer("Спасибо за вашу работу в офисе", reply_markup=builder)
+            break
 
 
 @router.message(Command("start"))
-async def start(message: Message, state: FSMContext):
+async def start(message: Message, state: FSMContext):  
+    msg = Answers.AnswerRection(place, y)
+    await message.answer(msg, reply_markup=Keyboards.Keyboard1Per4().as_markup(resize_keyboard=True, input_field_placeholder="Выберите место"))
     await state.set_state(Wait.number)
 
-    kb = [[
-        types.KeyboardButton(text="1"),
-        types.KeyboardButton(text="2"),
-        types.KeyboardButton(text="3"),
-        types.KeyboardButton(text="4"),
-    ]]
 
-    builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите место")
-
-    global usr
-    usr = message.from_user.username
-
-    for x in range(len(place)):
-        msg = ""
-        if place[x] != 0:
-            msg += f"🔴 {x+1} место\n"
-        else:
-            msg += f"🟢 {x+1} место\n"
-
-        await message.answer(msg, reply_markup=builder)
+@router.message(F.text == "Показать все места на данный момент")
+async def start(message: Message, state: FSMContext):  
+    msg = Answers.AnswerRection(place, y)
+    await message.answer(msg, reply_markup=Keyboards.Keyboard1Per4().as_markup(resize_keyboard=True, input_field_placeholder="Выберите место"))
+    await state.set_state(Wait.number)
 
     
 
-@router.message(Wait.number, (F.text == '1') | (F.text == '2') | (F.text == '3') | (F.text == '4'))  
+@router.message(Wait.number, (F.text == '19') | (F.text == '22') | (F.text == '61') | (F.text == '43'))  
 async def search_place(message: Message, state: FSMContext):
-
     await state.clear()
-
-    print(message.text)
-    global num_place
-
-    if message.text == "1":
+    if message.text == "19":
         num_place = 1
-    elif message.text == "2":
+    elif message.text == "22":
         num_place = 2
-    elif message.text == "3":
+    elif message.text == "61":
         num_place = 3
-    elif message.text == "4":
-        num_place = 4
-    
+    elif message.text == "43":
+        num_place = 4  
     if place[num_place-1] != 0:
-        await message.answer("Место занято. Приходите ещё.", reply_markup=types.ReplyKeyboardRemove())
-
+        await message.answer("Место занято. Выберете другое место", reply_markup=types.ReplyKeyboardRemove())
     else:
-
-        kb = [[
-            types.KeyboardButton(text="30 минут"),
-            types.KeyboardButton(text="1 час"),
-            types.KeyboardButton(text="2 часа"),
-        ]]
-        builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите время во-сколько вас упомянуть?")
-
-        place[num_place-1] = usr
-
+        builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardTime(), resize_keyboard=True, input_field_placeholder="Сколько планируете находиться на парковке?")
+        place[num_place-1] = message.from_user.username
         await state.set_state(TimeUser.timeForWait)
-        await message.reply("Выберите время во-сколько вас упомянуть?", reply_markup=builder) 
+        await message.reply("Сколько планируете находиться на парковке?", reply_markup=builder) 
 
 
 @router.message(Wait.number)
@@ -114,7 +93,8 @@ async def search_place_invalid(message: Message):
 @router.message(TimeUser.timeForWait, (F.text == "30 минут") | (F.text == "1 час") | (F.text == "2 часа"))
 async def inf_timer_with_break(message: Message, state: FSMContext):
 
-    await message.answer("Окей", reply_markup=types.ReplyKeyboardRemove())
+    builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardCancel(), resize_keyboard=True)
+    await message.answer("Окей", reply_markup=builder)
 
     if message.text == "30 минут":
         time_ = 30 
@@ -122,43 +102,53 @@ async def inf_timer_with_break(message: Message, state: FSMContext):
         time_ = 60 
     elif message.text == "2 часа":
         time_ = 120
+    
+    for x in range(len(place)):
+        if place[x] == message.from_user.username:
+            usr = True
+            break
+        else:
+            usr = False
+    
+    if usr == False:
+        builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardUploadTable(), resize_keyboard=True)
+        await message.answer("Что-то пошло не так", reply_markup=builder)
 
-    await asyncio.sleep(time_)
+    else:
+        await asyncio.sleep(time_)
 
-    if place[num_place-1] != 0:
-        kb = [[
-            types.KeyboardButton(text="Да"),
-            types.KeyboardButton(text="Нет"),
-        ]]
-        builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Продливать ли время?")
+        for x in range(len(place)):
+            if place[x] == message.from_user.username:  
+                builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardYesOrNo(), resize_keyboard=True, input_field_placeholder="Вы уехали с места парковки?")
+                await message.answer("Вы уехали с места парковки?", reply_markup=builder)
+                await state.set_state(TimeUser.timeToAnswer)
+                await asyncio.sleep(30)
 
-        await message.answer("Продливать ли время?", reply_markup=builder)
-        await state.set_state(TimeUser.timeToAnswer)
-        await asyncio.sleep(10)
-
-        if await state.get_state() == "TimeUser:timeToAnswer":
-            await state.clear()
-            place[num_place-1] = 0
-            await message.answer("Ваше место свободно для всех пользователей.", reply_markup=types.ReplyKeyboardRemove())
-
-
-@router.message(TimeUser.timeToAnswer, (F.text == "Да"))
-async def yes(message: Message, state: FSMContext):
-    state.set_state(TimeUser.timeForWait)
-    kb = [[
-        types.KeyboardButton(text="30 минут"),
-        types.KeyboardButton(text="1 час"),
-        types.KeyboardButton(text="2 часа"),
-    ]]
-    builder = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите время во-сколько вас упомянуть?")
-    await message.reply("Выберите время во-сколько вас упомянуть?", reply_markup=builder) 
+                if await state.get_state() == "TimeUser:timeToAnswer":
+                    await state.clear()
+                    for x in range(len(place)):
+                        if place[x] == message.from_user.username:
+                            place[x] = 0
+                    builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardUploadTable(), resize_keyboard=True)
+                    await message.answer("Место вашей парковки свободно для всех пользователей.", reply_markup=builder)
+                break
 
 
 @router.message(TimeUser.timeToAnswer, (F.text == "Нет"))
 async def no(message: Message, state: FSMContext):
-    global num_place  
-    place[num_place-1] = 0
-    await state.clear()
-    await message.answer("Спасибо за время на парковке", reply_markup= types.ReplyKeyboardRemove())
+    await state.set_state(TimeUser.timeForWait)
+    builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardTime(), resize_keyboard=True, input_field_placeholder="Сколько еще планируете находиться на парковке?")
+    await message.reply("Сколько еще планируете находиться на парковке?", reply_markup=builder) 
+
+
+@router.message(TimeUser.timeToAnswer, (F.text == "Да"))
+async def yes(message: Message, state: FSMContext):
+    for x in range(len(place)):
+        if place[x] == message.from_user.username:
+            await state.clear()
+            place[x] = 0
+            builder = types.ReplyKeyboardMarkup(keyboard=Keyboards.KeyboardUploadTable(), resize_keyboard=True)
+            await message.answer("Спасибо за вашу работу в офисе", reply_markup=builder)
+            break
 
 

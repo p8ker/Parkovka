@@ -5,3 +5,4 @@ class Wait(StatesGroup):
 
 class TimeUser(StatesGroup):
     timeForWait = State()
+    timeToAnswer = State()
